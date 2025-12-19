@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 
-export default function Templates({ onInsert }: { onInsert: (data: any) => void }) {
+import POLICY_COLORS from './policyColors';
+
+export default function Templates({ onInsert, onPolicyChange, onCategoryChange }: { onInsert: (template: any) => void; onPolicyChange?: (policy: string) => void; onCategoryChange?: (category: string) => void }) {
 	const [selected, setSelected] = useState('URSP');
 	const [search, setSearch] = useState('');
 	const componentsByPolicy: Record<string, string[]> = {
@@ -15,7 +17,11 @@ export default function Templates({ onInsert }: { onInsert: (data: any) => void 
 	// keep category in sync when selected policy changes
 	React.useEffect(() => {
 		const opts = componentsByPolicy[selected] || ['Policy'];
-		if (!opts.includes(category)) setCategory(opts[0]);
+		const defaultCat = opts[0];
+		// ensure category stays valid for the new policy
+		setCategory((prev) => (opts.includes(prev) ? prev : defaultCat));
+		onPolicyChange?.(selected);
+		onCategoryChange?.(defaultCat);
 	}, [selected]);
 
 	const categories = componentsByPolicy[selected] || ['Policy'];
@@ -59,32 +65,41 @@ export default function Templates({ onInsert }: { onInsert: (data: any) => void 
 			<div className="mb-3">
 				<div className="text-sm font-medium mb-2">Policy Type</div>
 				<div className="flex gap-2" role="radiogroup" aria-label="Templates category">
-				{['A2X','V2X','URSP','ANDSP','ProSe'].map((cat) => (
-					<button
-						key={cat}
-						type="button"
-						onClick={() => setSelected(cat)}
-						aria-pressed={selected === cat}
-						className={`px-3 py-1 rounded text-sm ${selected === cat ? 'bg-blue-500 text-white' : 'border bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'}`}>
-						{cat}
-					</button>
-				))}
+				{['A2X','V2X','URSP','ANDSP','ProSe'].map((cat) => {
+					const selectedClasses = POLICY_COLORS[cat] ?? 'bg-blue-500 text-white';
+					return (
+						<button
+							key={cat}
+							type="button"
+							onClick={() => {
+								setSelected(cat);
+								onPolicyChange?.(cat);
+							}}
+							aria-pressed={selected === cat}
+							className={`px-3 py-1 rounded text-sm ${selected === cat ? selectedClasses : 'border bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'}`}>
+							{cat}
+						</button>
+					);
+				})}
 				</div>
 			</div>
 
 			<div className="mb-3">
 				<div className="text-sm font-medium mb-2">Category</div>
 				<div className="flex gap-2" role="radiogroup" aria-label="Category">
-					{categories.map((opt) => (
+					{categories.map((opt) => {
+					const categorySelectedClasses = POLICY_COLORS[selected] ?? 'bg-blue-500 text-white';
+					return (
 						<button
 							key={opt}
 							type="button"
-							onClick={() => setCategory(opt)}
+							onClick={() => { setCategory(opt); onCategoryChange?.(opt); }}
 							aria-pressed={category === opt}
-							className={`px-3 py-1 rounded text-sm ${category === opt ? 'bg-blue-500 text-white' : 'border bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'}`}>
+							className={`px-3 py-1 rounded text-sm ${category === opt ? categorySelectedClasses : 'border bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'}`}>
 							{opt}
 						</button>
-					))}
+					);
+				})}
 				</div>
 			</div>
 
@@ -95,9 +110,9 @@ export default function Templates({ onInsert }: { onInsert: (data: any) => void 
 				<div className="space-y-2">
 					{results.length === 0 && <div className="text-sm text-gray-500">No templates</div>}
 					{results.map((r) => (
-						<button key={r.id} onClick={() => onInsert(r.data)} className="w-full text-left p-2 rounded border hover:bg-gray-50 dark:hover:bg-gray-800">
+						<button key={r.id} onClick={() => onInsert({ ...r, category, policy: selected })} className="w-full text-left p-2 rounded border hover:bg-gray-50 dark:hover:bg-gray-800">
 							<div className="font-medium">{r.name}</div>
-							<div className="text-xs text-gray-500 mt-1">Click to insert into editor</div>
+							<div className="text-xs text-gray-500 mt-1">Click to apply to editor</div>
 						</button>
 					))}
 				</div>
