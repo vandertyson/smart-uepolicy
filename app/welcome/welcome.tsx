@@ -273,34 +273,9 @@ export default function Welcome({ message }: { message?: string }) {
 	};
 
 	const insertTemplateIntoPolicy = (template: any) => {
-		// shallow-merge into the first section's URSP array if possible, otherwise attach under 'insertedTemplates'
-		const copy = JSON.parse(JSON.stringify(policyData || {}));
-		copy.insertedTemplates = copy.insertedTemplates || [];
-
-		try {
-			const section = copy.uePolicySectionManagementList?.[0]?.uePolicySectionManagementSublist ?? null;
-			if (section) {
-				// drill down to uePolicyPartContents
-				const contents = copy.uePolicySectionManagementList[0].uePolicySectionManagementSublist.uePolicySectionManagementSublistContents;
-				if (!Array.isArray(contents) || contents.length === 0) {
-					copy.uePolicySectionManagementList[0].uePolicySectionManagementSublist.uePolicySectionManagementSublistContents = [{ instruction: { upsc: 0, uePolicySectionContents: [{ uePolicyPart: { uePolicyPartType: 0, uePolicyPartContents: {} } }] } }];
-				}
-				const partContents = copy.uePolicySectionManagementList[0].uePolicySectionManagementSublist.uePolicySectionManagementSublistContents[0].instruction.uePolicySectionContents[0].uePolicyPart.uePolicyPartContents;
-				if (template.urspRule || template.urspRule !== undefined) {
-					partContents.ursp = partContents.ursp || [];
-					partContents.ursp.push(template);
-				} else {
-					// fallback: push into insertedTemplates array
-					copy.insertedTemplates.push(template);
-				}
-			} else {
-				copy.insertedTemplates.push(template);
-			}
-		} catch (e) {
-			copy.insertedTemplates.push(template);
-		}
-
-		handleSetPolicyData(copy);
+		// Replace entire editor content with the selected template and record it in history
+		handleSetPolicyData(JSON.parse(JSON.stringify(template)));
+	};
 
 	};
 
