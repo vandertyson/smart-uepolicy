@@ -272,6 +272,39 @@ export default function Welcome({ message }: { message?: string }) {
 		pushHistory(newData);
 	};
 
+	const insertTemplateIntoPolicy = (template: any) => {
+		// shallow-merge into the first section's URSP array if possible, otherwise attach under 'insertedTemplates'
+		const copy = JSON.parse(JSON.stringify(policyData || {}));
+		copy.insertedTemplates = copy.insertedTemplates || [];
+
+		try {
+			const section = copy.uePolicySectionManagementList?.[0]?.uePolicySectionManagementSublist ?? null;
+			if (section) {
+				// drill down to uePolicyPartContents
+				const contents = copy.uePolicySectionManagementList[0].uePolicySectionManagementSublist.uePolicySectionManagementSublistContents;
+				if (!Array.isArray(contents) || contents.length === 0) {
+					copy.uePolicySectionManagementList[0].uePolicySectionManagementSublist.uePolicySectionManagementSublistContents = [{ instruction: { upsc: 0, uePolicySectionContents: [{ uePolicyPart: { uePolicyPartType: 0, uePolicyPartContents: {} } }] } }];
+				}
+				const partContents = copy.uePolicySectionManagementList[0].uePolicySectionManagementSublist.uePolicySectionManagementSublistContents[0].instruction.uePolicySectionContents[0].uePolicyPart.uePolicyPartContents;
+				if (template.urspRule || template.urspRule !== undefined) {
+					partContents.ursp = partContents.ursp || [];
+					partContents.ursp.push(template);
+				} else {
+					// fallback: push into insertedTemplates array
+					copy.insertedTemplates.push(template);
+				}
+			} else {
+				copy.insertedTemplates.push(template);
+			}
+		} catch (e) {
+			copy.insertedTemplates.push(template);
+		}
+
+		handleSetPolicyData(copy);
+		// optional: give user immediate feedback
+		if (typeof window !== 'undefined') window.alert('Template inserted into editor');
+	};
+
 	const canUndo = () => historyIndexRef.current > 0;
 	const canRedo = () => historyIndexRef.current < historyRef.current.length - 1;
 
@@ -391,7 +424,7 @@ export default function Welcome({ message }: { message?: string }) {
 				</section>
 
 				<aside className="col-span-1 flex flex-col gap-4">
-						<Templates />
+						<Templates onInsert={insertTemplateIntoPolicy} />
 
 					<div className="border border-gray-300 dark:border-gray-700 rounded p-3 bg-white dark:bg-gray-800 flex-1 flex flex-col">
 						<h4 className="font-bold text-center mb-2">Agent</h4>
