@@ -2,6 +2,7 @@ import React, { useState, Suspense, useRef } from "react";
 import 'antd/dist/reset.css';
 import { Dropdown, Button, message } from 'antd';
 import Templates from './Templates';
+import POLICY_COLORS, { POLICY_OUTLINE } from './policyColors';
 
 // Lazy-load json-edit-react to avoid build issues if types are missing
 const JsonEditor = React.lazy(async () => {
@@ -249,6 +250,8 @@ export default function Welcome({ serverMessage }: { serverMessage?: string }) {
 	// Editor metadata (dynamic; updates when editor content changes or template applied)
 	const [editorName, setEditorName] = useState(name);
 	const [editorLastModified, setEditorLastModified] = useState(lastModified);
+	const [editorPolicyType, setEditorPolicyType] = useState('URSP');
+	const [editorCategory, setEditorCategory] = useState('Policy');
 
 // Derive the editor root key (top-level object key) and its content
 	const rootKey = Object.keys(policyData)[0] ?? "Policy";
@@ -278,11 +281,15 @@ export default function Welcome({ serverMessage }: { serverMessage?: string }) {
 		if (newData && typeof newData.name === 'string') setEditorName(newData.name);
 	};
 
-	const insertTemplateIntoPolicy = (template: any) => {
-		// Replace entire editor content with the selected template and record it in history
-		handleSetPolicyData(JSON.parse(JSON.stringify(template)));
+	const insertTemplateIntoPolicy = (templateOrData: any) => {
+		// Accept either a template object { id, name, data } or raw data; prefer template.data if present
+		const payload = templateOrData && templateOrData.data ? templateOrData.data : templateOrData;
+		// Replace editor content with the selected template data (undoable)
+		handleSetPolicyData(JSON.parse(JSON.stringify(payload)));
 		// update editor metadata to the template's name (if available) and set lastModified to now
-		setEditorName(template.name ?? editorName);
+		if (templateOrData && typeof templateOrData.name === 'string') setEditorName(templateOrData.name);
+		if (templateOrData && typeof templateOrData.policy === 'string') setEditorPolicyType(templateOrData.policy);
+		if (templateOrData && typeof templateOrData.category === 'string') setEditorCategory(templateOrData.category);
 		setEditorLastModified(new Date().toISOString());
 		// show a toast confirmation
 		message.success('Template applied to editor');
@@ -361,7 +368,11 @@ export default function Welcome({ serverMessage }: { serverMessage?: string }) {
 				<section className="col-span-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded shadow-sm p-4 flex flex-col max-h-[calc(100vh-6rem)]">
 					<div className="flex items-center justify-between mb-2">
 						<div>
-<h2 className="text-2xl font-semibold">{editorName} <span className="ml-3 inline-block px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-sm">Policy</span></h2>
+				<h2 className="text-2xl font-semibold">
+					{editorName}
+					<span className={`ml-3 inline-block px-2 py-0.5 rounded text-sm ${POLICY_COLORS[editorPolicyType] ?? 'bg-blue-500 text-white'}`}>{editorPolicyType}</span>
+					<span className={`ml-2 inline-block px-2 py-0.5 rounded text-sm border ${POLICY_OUTLINE[editorPolicyType] ?? 'border-blue-500 text-blue-500'}`}>{editorCategory}</span>
+				</h2>
 				<div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Last modified: {new Date(editorLastModified).toLocaleString()}</div>
 					</div>
 						<div className="flex items-center gap-2">
@@ -407,7 +418,7 @@ export default function Welcome({ serverMessage }: { serverMessage?: string }) {
 				</section>
 
 				<aside className="col-span-1 flex flex-col gap-4">
-						<Templates onInsert={insertTemplateIntoPolicy} />
+						<Templates onInsert={insertTemplateIntoPolicy} onPolicyChange={setEditorPolicyType} onCategoryChange={setEditorCategory} />
 
 					<div className="border border-gray-300 dark:border-gray-700 rounded p-3 bg-white dark:bg-gray-800 flex-1 flex flex-col">
 						<h4 className="font-bold text-center mb-2">Agent</h4>
