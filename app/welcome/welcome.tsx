@@ -301,8 +301,7 @@ export default function Welcome({ message }: { message?: string }) {
 		}
 
 		handleSetPolicyData(copy);
-		// optional: give user immediate feedback
-		if (typeof window !== 'undefined') window.alert('Template inserted into editor');
+
 	};
 
 	const canUndo = () => historyIndexRef.current > 0;

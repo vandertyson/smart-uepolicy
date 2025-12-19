@@ -88,11 +88,6 @@ export default function Templates({ onInsert }: { onInsert: (data: any) => void 
 				</div>
 			</div>
 
-			<div className="border rounded overflow-hidden">
-				{categories.map((opt) => (
-					<div key={opt} className={`p-3 text-center ${opt === category ? 'bg-blue-500 text-white font-semibold' : 'text-gray-600 border-b'}`}>{opt}</div>
-				))}
-			</div>
 
 			{/* Results list */}
 			<div className="mt-3">
