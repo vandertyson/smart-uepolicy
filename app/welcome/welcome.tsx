@@ -1,6 +1,6 @@
 import React, { useState, Suspense, useRef } from "react";
 import 'antd/dist/reset.css';
-import { Dropdown, Button } from 'antd';
+import { Dropdown, Button, message } from 'antd';
 import Templates from './Templates';
 
 // Lazy-load json-edit-react to avoid build issues if types are missing
@@ -275,6 +275,8 @@ export default function Welcome({ message }: { message?: string }) {
 	const insertTemplateIntoPolicy = (template: any) => {
 		// Replace entire editor content with the selected template and record it in history
 		handleSetPolicyData(JSON.parse(JSON.stringify(template)));
+		// show a toast confirmation
+		message.success('Template applied to editor');
 	};
 
 	};
