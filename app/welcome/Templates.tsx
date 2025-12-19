@@ -10,7 +10,9 @@ export default function Templates() {
 			<div className="mb-3">
 				<input placeholder="Search" className="w-full border rounded px-2 py-1 text-sm" />
 			</div>
-			<div className="flex gap-2 mb-3" role="radiogroup" aria-label="Templates category">
+			<div className="mb-3">
+				<div className="text-sm font-medium mb-2">Policy Type</div>
+				<div className="flex gap-2" role="radiogroup" aria-label="Templates category">
 				{['A2X','V2X','URSP','ANDSP','ProSe'].map((cat) => (
 					<button
 						key={cat}
@@ -21,6 +23,7 @@ export default function Templates() {
 						{cat}
 					</button>
 				))}
+				</div>
 			</div>
 			<div className="border rounded overflow-hidden">
 				<div className="p-3 text-center border-b text-gray-600">Policy</div>
