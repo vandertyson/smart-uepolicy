@@ -244,8 +244,11 @@ const initialPolicyData = JSON.parse(`{
     ]
 }`);
 
-export default function Welcome({ message }: { message?: string }) {
+export default function Welcome({ serverMessage }: { serverMessage?: string }) {
 	const [policyData, setPolicyData] = useState(initialPolicyData);
+	// Editor metadata (dynamic; updates when editor content changes or template applied)
+	const [editorName, setEditorName] = useState(name);
+	const [editorLastModified, setEditorLastModified] = useState(lastModified);
 
 // Derive the editor root key (top-level object key) and its content
 	const rootKey = Object.keys(policyData)[0] ?? "Policy";
@@ -270,15 +273,19 @@ export default function Welcome({ message }: { message?: string }) {
 	const handleSetPolicyData = (newData: any) => {
 		setPolicyData(newData);
 		pushHistory(newData);
+		// update last modified when the editor data changes, and update name if provided by data
+		setEditorLastModified(new Date().toISOString());
+		if (newData && typeof newData.name === 'string') setEditorName(newData.name);
 	};
 
 	const insertTemplateIntoPolicy = (template: any) => {
 		// Replace entire editor content with the selected template and record it in history
 		handleSetPolicyData(JSON.parse(JSON.stringify(template)));
+		// update editor metadata to the template's name (if available) and set lastModified to now
+		setEditorName(template.name ?? editorName);
+		setEditorLastModified(new Date().toISOString());
 		// show a toast confirmation
 		message.success('Template applied to editor');
-	};
-
 	};
 
 	const canUndo = () => historyIndexRef.current > 0;
@@ -354,8 +361,8 @@ export default function Welcome({ message }: { message?: string }) {
 				<section className="col-span-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded shadow-sm p-4 flex flex-col max-h-[calc(100vh-6rem)]">
 					<div className="flex items-center justify-between mb-2">
 						<div>
-				<h2 className="text-2xl font-semibold">{name} <span className="ml-3 inline-block px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-sm">Policy</span></h2>
-					<div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Last modified: {new Date(lastModified).toLocaleString()}</div>
+<h2 className="text-2xl font-semibold">{editorName} <span className="ml-3 inline-block px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-sm">Policy</span></h2>
+				<div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Last modified: {new Date(editorLastModified).toLocaleString()}</div>
 					</div>
 						<div className="flex items-center gap-2">
 						<button onClick={undo} disabled={!canUndo()} className={`px-3 py-1 border rounded text-sm ${!canUndo() ? "opacity-50 cursor-not-allowed" : ""}`}>Undo</button>
