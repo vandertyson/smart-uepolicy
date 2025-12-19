@@ -14,3 +14,25 @@ body {
 		color-scheme: dark;
 	}
 }
+
+/* Welcome page helpers */
+pre {
+	/* Use a compact monospace font for the editor/tree */
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", "Oxygen", "Ubuntu Mono", monospace;
+	font-size: 13px;
+}
+
+/* Ensure json-edit-react fills the left panel */
+.jer-editor-container.h-full {
+	height: 100%;
+	min-height: 0; /* allow flex children to shrink instead of creating their own scrollbars */
+	display: flex;
+	flex-direction: column;
+}
+
+/* Let the outer panel (the left column) be the single scroller. Avoid inner scrollbars. */
+.jer-editor-container .jer-collection-inner {
+	overflow: visible; /* allow content to flow into the outer scroller */
+	flex: 1 1 auto;
+	max-height: none;
+}
