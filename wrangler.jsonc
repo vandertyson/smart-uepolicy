@@ -26,15 +26,9 @@
 	 */
 	"d1_databases": [
 		{
-			"binding": "DB",
-			"database_name": "smart-uepolicy",
-			"database_id": "smart-uepolicy-db"
-		},
-		{
 			"binding": "smart_uepolicy",
 			"database_name": "smart-uepolicy",
-			"database_id": "73f57984-90e2-4a35-87a9-ff1f33c14b0d",
-			"remote": true
+			"database_id": "73f57984-90e2-4a35-87a9-ff1f33c14b0d"
 		}
 	],
 	/**
