@@ -3,7 +3,16 @@ import React, { useState } from "react";
 import { message } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 
-export default function Templates({ onInsert, onDelete, currentEditingId }: { onInsert: (template: any) => void; onDelete?: () => void; currentEditingId?: string | null }) {
+interface TemplatesProps {
+	onInsert: (template: any) => void;
+	onDelete?: () => void;
+	currentEditingId?: string | null;
+	loadedPolicies?: any[];
+	onLoadPolicy?: (policyId: string) => Promise<void>;
+}
+
+export default function Templates({ onInsert, onDelete, currentEditingId, loadedPolicies = [], onLoadPolicy }: TemplatesProps) {
+	const [mode, setMode] = useState<'templates' | 'database'>('templates');
 	const [selected, setSelected] = useState('URSP');
 	const [search, setSearch] = useState('');
 	const componentsByPolicy: Record<string, string[]> = {
@@ -53,30 +62,85 @@ export default function Templates({ onInsert, onDelete, currentEditingId }: { on
 
 	const [templatesByPolicy, setTemplatesByPolicy] = useState(initialTemplates);
 
-	const results = (templatesByPolicy[selected]?.[category] || []).filter((t) => t.name.toLowerCase().includes(search.toLowerCase()));
+	// Filter templates from database or static templates based on mode
+	let results: Array<{ id: string; name: string; data?: any; policyId?: string }> = [];
+	
+	if (mode === 'database') {
+		// Show database policies filtered by search
+		results = (loadedPolicies || [])
+			.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()))
+			.map((p) => ({
+				id: p.id,
+				name: p.name,
+				policyId: p.id
+			}));
+	} else {
+		// Show static templates filtered by search
+		results = (templatesByPolicy[selected]?.[category] || [])
+			.filter((t) => t.name.toLowerCase().includes(search.toLowerCase()));
+	}
 
 	return (
 		<div className="border border-gray-300 dark:border-gray-700 rounded p-3 bg-white dark:bg-gray-800 flex flex-col h-full">
 			<div className="flex items-center justify-between mb-3">
 				<h3 className="font-bold text-lg">Templates</h3>
 			</div>
+
+			{/* Toggle between Templates and Database */}
 			<div className="mb-3">
-				<label className="text-sm font-medium mb-2 block">Policy Type</label>
-				<select value={selected} onChange={(e) => setSelected(e.target.value)} className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-gray-800">
-					{['A2X', 'V2X', 'URSP', 'ANDSP', 'ProSe'].map((cat) => (
-						<option key={cat} value={cat}>{cat}</option>
-					))}
-				</select>
+				<div className="flex rounded overflow-hidden border border-gray-300 dark:border-gray-700">
+					<button
+						onClick={() => setMode('templates')}
+						className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+							mode === 'templates'
+								? 'bg-blue-600 text-white'
+								: 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+						}`}
+					>
+						📝 Templates
+					</button>
+					<button
+						onClick={() => setMode('database')}
+						className={`flex-1 px-3 py-2 text-sm font-medium transition-colors border-l border-gray-300 dark:border-gray-700 ${
+							mode === 'database'
+								? 'bg-blue-600 text-white'
+								: 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+						}`}
+					>
+						💾 Database
+					</button>
+				</div>
 			</div>
 
-			<div className="mb-3">
-				<label className="text-sm font-medium mb-2 block">Category</label>
-				<select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-gray-800">
-					{categories.map((opt) => (
-						<option key={opt} value={opt}>{opt}</option>
-					))}
-				</select>
-			</div>
+			{mode === 'templates' && (
+				<>
+					<div className="mb-3">
+						<label className="text-sm font-medium mb-2 block">Policy Type</label>
+						<select value={selected} onChange={(e) => setSelected(e.target.value)} className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-gray-800">
+							{['A2X', 'V2X', 'URSP', 'ANDSP', 'ProSe'].map((cat) => (
+								<option key={cat} value={cat}>{cat}</option>
+							))}
+						</select>
+					</div>
+
+					<div className="mb-3">
+						<label className="text-sm font-medium mb-2 block">Category</label>
+						<select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-gray-800">
+							{categories.map((opt) => (
+								<option key={opt} value={opt}>{opt}</option>
+							))}
+						</select>
+					</div>
+				</>
+			)}
+
+			{mode === 'database' && (
+				<div className="mb-3">
+					<div className="text-sm text-gray-600 dark:text-gray-400 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+						💡 {loadedPolicies.length} {loadedPolicies.length === 1 ? 'policy' : 'policies'} loaded from database
+					</div>
+				</div>
+			)}
 
 			<div className="mb-3">
 				<label htmlFor="template-search" className="text-sm font-medium mb-2 block">Search</label>
@@ -92,42 +156,64 @@ export default function Templates({ onInsert, onDelete, currentEditingId }: { on
 							<div className="text-sm font-medium">Results</div>
 							<div className="text-sm text-gray-500">{results.length} result{results.length !== 1 ? 's' : ''}</div>
 						</div>
-						<div>
-							<button onClick={() => {
-								const id = `tmp-${Date.now()}`;
-								const newItem = { id, name: 'New template', data: {} };
-								setTemplatesByPolicy(prev => {
-									const copy = { ...prev } as any;
-									copy[selected] = { ...(copy[selected] || {}) };
-									copy[selected][category] = [newItem, ...(copy[selected][category] || [])];
-									return copy;
-								});
-								message.success('Added new template');
-							}} className="text-sm border rounded px-3 py-1 bg-white dark:bg-gray-800">+ Add new item</button>
-						</div>
-					</div>
-					<div className="space-y-2 overflow-auto pr-1 h-full">
-						{results.length === 0 && <div className="text-sm text-gray-500">No templates</div>}
-						{results.map((r) => (
-							<div key={r.id} className={`w-full flex items-center justify-between p-2 rounded border group ${currentEditingId === r.id ? 'bg-blue-50 dark:bg-blue-900 border-blue-400' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
-								<button onClick={() => onInsert({ ...r, category, policy: selected })} className="text-left flex-1 min-w-0">
-									<div className="font-medium truncate">{r.name}</div>
-									<div className="text-xs text-gray-500 mt-1">Click to apply to editor</div>
-								</button>
-								<button aria-label="Delete" onClick={() => {
+						{mode === 'templates' && (
+							<div>
+								<button onClick={() => {
+									const id = `tmp-${Date.now()}`;
+									const newItem = { id, name: 'New template', data: {} };
 									setTemplatesByPolicy(prev => {
 										const copy = { ...prev } as any;
 										copy[selected] = { ...(copy[selected] || {}) };
-										copy[selected][category] = (copy[selected][category] || []).filter((t: any) => t.id !== r.id);
+										copy[selected][category] = [newItem, ...(copy[selected][category] || [])];
 										return copy;
 									});
-									message.success('Deleted');
-									onDelete?.();
-								}} className="text-red-600 p-1 rounded hover:bg-red-100 bg-red-50 ml-2 flex-shrink-0">
-									<DeleteOutlined />
-								</button>
+									message.success('Added new template');
+								}} className="text-sm border rounded px-3 py-1 bg-white dark:bg-gray-800">+ Add new item</button>
 							</div>
-						))}
+						)}
+					</div>
+					<div className="space-y-2 overflow-auto pr-1 h-full">
+						{results.length === 0 && (
+							<div className="text-sm text-gray-500">
+								{mode === 'database' ? 'No policies in database' : 'No templates'}
+							</div>
+						)}
+						{results.map((r) => {
+							const isDatabase = mode === 'database';
+							return (
+								<div key={r.id} className={`w-full flex items-center justify-between p-2 rounded border group ${currentEditingId === r.id ? 'bg-blue-50 dark:bg-blue-900 border-blue-400' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+									<button 
+										onClick={async () => {
+											if (isDatabase && onLoadPolicy && r.policyId) {
+												await onLoadPolicy(r.policyId);
+											} else {
+												onInsert({ ...r, category, policy: selected });
+											}
+										}} 
+										className="text-left flex-1 min-w-0"
+									>
+										<div className="font-medium truncate">{r.name}</div>
+										<div className="text-xs text-gray-500 mt-1">
+											{isDatabase ? 'Click to load from database' : 'Click to apply to editor'}
+										</div>
+									</button>
+									{!isDatabase && (
+										<button aria-label="Delete" onClick={() => {
+											setTemplatesByPolicy(prev => {
+												const copy = { ...prev } as any;
+												copy[selected] = { ...(copy[selected] || {}) };
+												copy[selected][category] = (copy[selected][category] || []).filter((t: any) => t.id !== r.id);
+												return copy;
+											});
+											message.success('Deleted');
+											onDelete?.();
+										}} className="text-red-600 p-1 rounded hover:bg-red-100 bg-red-50 ml-2 flex-shrink-0">
+											<DeleteOutlined />
+										</button>
+									)}
+								</div>
+							);
+						})}
 					</div>
 				</div>
 			</div>

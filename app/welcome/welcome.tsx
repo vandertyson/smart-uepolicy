@@ -1,20 +1,13 @@
-import React, { useState, Suspense, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import 'antd/dist/reset.css';
-import { Dropdown, Button, message } from 'antd';
+import { Dropdown, Button, message, Popconfirm } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
 import Templates from './Templates';
+import PolicyFormEditor from './PolicyFormEditor';
 import POLICY_COLORS, { POLICY_OUTLINE } from './policyColors';
+import { policyApi, convertToLegacyFormat, convertFromLegacyFormat, type PolicyFull } from '../api/ursp-api';
 
-// Lazy-load json-edit-react to avoid build issues if types are missing
-const JsonEditor = React.lazy(async () => {
-	// @ts-ignore: dynamic import of a JS package without types
-	const mod = await import("json-edit-react");
-	// package exports a named `JsonEditor` component — prefer that, fallback to default
-	const Comp = (mod as any).JsonEditor ?? (mod as any).default ?? (mod as any);
-	return { default: Comp };
-});
 
-// json-edit-react has weak/missing types; help TS by aliasing to `any` for JSX usage
-const AnyJsonEditor: any = JsonEditor;
 const name = "Netflix 4K";
 const initialPolicyData = JSON.parse(`{
     "uePolicySectionManagementList":[
@@ -246,57 +239,63 @@ const initialPolicyData = JSON.parse(`{
 
 export default function Welcome() {
 	const [policyData, setPolicyData] = useState({});
+	const [isClient, setIsClient] = useState(false);
 	// Editor metadata (dynamic; updates when editor content changes or template applied)
 	const [editorName, setEditorName] = useState('(unnamed)');
 	const [editorLastModified, setEditorLastModified] = useState(new Date().toISOString());
 	const [editorPolicyType, setEditorPolicyType] = useState('URSP');
 	const [editorCategory, setEditorCategory] = useState('Policy');
+	
+	// State for loaded policies from database
+	const [loadedPolicies, setLoadedPolicies] = useState<any[]>([]);
+	const [currentPolicyId, setCurrentPolicyId] = useState<string | null>(null);
+	const [currentPartId, setCurrentPartId] = useState<string | null>(null);
+	const [loading, setLoading] = useState(false);
 
-	// Dropdown visibility state for Save
-	const [saveDropdownOpen, setSaveDropdownOpen] = useState(false);
+	// Set client-side flag to avoid hydration mismatch
+	useEffect(() => {
+		setIsClient(true);
+	}, []);
+	
+	// Load policies from API on mount
+	useEffect(() => {
+		const loadPolicies = async () => {
+			try {
+				const response = await policyApi.list();
+				if (response.success && response.data) {
+					setLoadedPolicies(response.data);
+					console.log('Loaded policies from API:', response.data);
+				}
+			} catch (error) {
+				console.error('Failed to load policies:', error);
+			}
+		};
+		loadPolicies();
+	}, []);
 
-	// Inline name edit s tate
+	// Inline name edit state
 	const [editingName, setEditingName] = useState(false);
 	const [nameInput, setNameInput] = useState(editorName);
 	const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
 
-// Derive the editor root key (top-level object key) and its content
-	const rootKey = Object.keys(policyData)[0] ?? "Policy";
-
-	// Simple undo/redo history stack managed outside the editor
-	const historyRef = useRef<Array<any>>([initialPolicyData]);
-	const historyIndexRef = useRef<number>(0);
-	const applyingHistoryRef = useRef(false);
-	const [, setTick] = useState(0);
-
-	const pushHistory = (newData: any) => {
-		if (applyingHistoryRef.current) return;
-		const slice = historyRef.current.slice(0, historyIndexRef.current + 1);
-		slice.push(JSON.parse(JSON.stringify(newData)));
-		historyRef.current = slice;
-		historyIndexRef.current = slice.length - 1;
-		setTick((t) => t + 1);
-	};
-
 	const handleSetPolicyData = (newData: any) => {
 		setPolicyData(newData);
-		pushHistory(newData);
-		// update last modified when the editor data changes, and update name if provided by data
 		setEditorLastModified(new Date().toISOString());
-		if (newData && typeof newData.name === 'string') setEditorName(newData.name);
 	};
 
 	const insertTemplateIntoPolicy = (templateOrData: any) => {
 		// Accept either a template object { id, name, data } or raw data; prefer template.data if present
 		const payload = templateOrData && templateOrData.data ? templateOrData.data : templateOrData;
 		const dataCopy = JSON.parse(JSON.stringify(payload));
-		// Set data WITHOUT pushing to history - template application is not an edit operation
 		setPolicyData(dataCopy);
-		// Reset history stack to start fresh from the template data
-		historyRef.current = [dataCopy];
-		historyIndexRef.current = 0;
+		
 		// Track which template is currently being edited
 		if (templateOrData && typeof templateOrData.id === 'string') setCurrentTemplateId(templateOrData.id);
+		// Track policy ID and part ID if loading from database
+		if (templateOrData && typeof templateOrData.policyId === 'string') {
+			setCurrentPolicyId(templateOrData.policyId);
+			if (templateOrData.partId) setCurrentPartId(templateOrData.partId);
+		}
 		// update editor metadata to the template's name (if available) and set lastModified to now
 		if (templateOrData && typeof templateOrData.name === 'string') setEditorName(templateOrData.name);
 		if (templateOrData && typeof templateOrData.policy === 'string') setEditorPolicyType(templateOrData.policy);
@@ -304,27 +303,6 @@ export default function Welcome() {
 		setEditorLastModified(new Date().toISOString());
 		// show a toast confirmation
 		message.success('Template applied to editor');
-	};
-
-	const canUndo = () => historyIndexRef.current > 0;
-	const canRedo = () => historyIndexRef.current < historyRef.current.length - 1;
-
-	const undo = () => {
-		if (!canUndo()) return;
-		applyingHistoryRef.current = true;
-		historyIndexRef.current -= 1;
-		setPolicyData(historyRef.current[historyIndexRef.current]);
-		setTimeout(() => (applyingHistoryRef.current = false), 0);
-		setTick((t) => t + 1);
-	};
-
-	const redo = () => {
-		if (!canRedo()) return;
-		applyingHistoryRef.current = true;
-		historyIndexRef.current += 1;
-		setPolicyData(historyRef.current[historyIndexRef.current]);
-		setTimeout(() => (applyingHistoryRef.current = false), 0);
-		setTick((t) => t + 1);
 	};
 
 	// Download helper
@@ -340,8 +318,51 @@ export default function Welcome() {
 		URL.revokeObjectURL(url);
 	};
 
-	const handleSaveSelect = (key: string) => {
+	const handleSaveSelect = async (key: string) => {
 		switch (key) {
+			case 'database': {
+				if (loading) return;
+				setLoading(true);
+				try {
+					if (currentPolicyId) {
+						// Update existing policy
+						const response = await policyApi.update(currentPolicyId, {
+							name: editorName,
+							description: `Last modified: ${editorLastModified}`,
+						});
+						if (response.success) {
+							message.success('Policy updated in database');
+						} else {
+							message.error(response.error || 'Failed to update policy');
+						}
+					} else {
+						// Create new policy
+						const response = await policyApi.create({
+							name: editorName,
+							description: `Created: ${editorLastModified}`,
+							mcc: '452',
+							mnc: '04',
+						});
+						if (response.success && response.data) {
+							setCurrentPolicyId(response.data.id);
+							message.success('Policy saved to database');
+							// Reload policies list
+							const listResponse = await policyApi.list();
+							if (listResponse.success && listResponse.data) {
+								setLoadedPolicies(listResponse.data);
+							}
+						} else {
+							message.error(response.error || 'Failed to save policy');
+						}
+					}
+				} catch (error) {
+					console.error('Error saving to database:', error);
+					message.error('Failed to save to database');
+				} finally {
+					setLoading(false);
+				}
+				break;
+			}
 			case 'json': {
 				const json = JSON.stringify(policyData, null, 2);
 				downloadFile(`${name.replace(/\s+/g, '_')}.json`, json, 'application/json');
@@ -373,7 +394,42 @@ export default function Welcome() {
 			<main className="w-full grid grid-cols-[minmax(160px,20%)_minmax(0,1fr)_minmax(160px,20%)] gap-4 min-h-[calc(100vh-6rem)] max-h-[calc(100vh-6rem)]">
 				<aside className="min-w-0 min-h-0 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded shadow-sm p-3 flex flex-col max-h-[calc(100vh-6rem)]">
 					{/* Left column: Templates */}
-					<Templates onInsert={insertTemplateIntoPolicy} onDelete={() => { setPolicyData({}); setEditorName('(unnamed)'); setEditorLastModified(new Date().toISOString()); setCurrentTemplateId(null); }} currentEditingId={currentTemplateId} />
+					<Templates 
+						onInsert={insertTemplateIntoPolicy} 
+						onDelete={() => { 
+							setPolicyData({}); 
+							setEditorName('(unnamed)'); 
+							setEditorLastModified(new Date().toISOString()); 
+							setCurrentTemplateId(null);
+							setCurrentPolicyId(null);
+							setCurrentPartId(null);
+						}} 
+						currentEditingId={currentTemplateId}
+						loadedPolicies={loadedPolicies}
+						onLoadPolicy={async (policyId: string) => {
+							try {
+								const response = await policyApi.getFull(policyId);
+								if (response.success && response.data) {
+									const legacyFormat = convertToLegacyFormat(response.data);
+									const partId = response.data.parts[0]?.id || null;
+									insertTemplateIntoPolicy({
+										id: policyId,
+										name: response.data.name,
+										data: legacyFormat,
+										policyId: policyId,
+										partId: partId,
+										policy: 'URSP',
+										category: 'Policy'
+									});
+								} else {
+									message.error(response.error || 'Failed to load policy');
+								}
+							} catch (error) {
+								console.error('Error loading policy:', error);
+								message.error('Failed to load policy from database');
+							}
+						}}
+					/>
 				</aside>
 
 				<section className="min-w-0 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded shadow-sm p-3 flex flex-col max-h-[calc(100vh-6rem)]">
@@ -399,28 +455,70 @@ export default function Welcome() {
 					{/* Controls */}
 					<div className="flex items-center justify-between gap-2 mb-3">
 						<div className="flex items-center gap-2">
-							<button onClick={undo} disabled={!canUndo()} className={`px-3 py-1 border rounded text-sm ${!canUndo() ? "opacity-50 cursor-not-allowed" : ""}`}>Undo</button>
-							<button onClick={redo} disabled={!canRedo()} className={`px-3 py-1 border rounded text-sm ${!canRedo() ? "opacity-50 cursor-not-allowed" : ""}`}>Redo</button>
-							{/* Save dropdown - show on hover */}
-							{/* @ts-ignore */}
+							{/* Save dropdown */}
 							<Dropdown
-								open={saveDropdownOpen}
-								onOpenChange={setSaveDropdownOpen}
-								trigger={['hover']}
+								trigger={['click']}
 								menu={{
 									items: [
+										{ key: 'database', label: currentPolicyId ? '💾 Update in Database' : '💾 Save to Database' },
+										{ type: 'divider' },
 										{ key: 'json', label: 'Save as JSON' },
 										{ key: 'binary', label: 'Save as Binary' },
 										{ key: 'hex', label: 'Save as Hex' },
 										{ key: 'registry', label: 'Policy registry' }
 									],
-									onClick: (info: any) => { handleSaveSelect(info.key); setSaveDropdownOpen(false); },
+									onClick: (info: any) => { handleSaveSelect(info.key); },
 								}}
 							>
-								<Button className="bg-green-600 text-white border-0">Save ▾</Button>
+								<Button className="bg-green-600 text-white border-0 hover:bg-green-700" loading={loading}>
+									💾 Save ▾
+								</Button>
 							</Dropdown>
+
+							{/* Delete button */}
+							{currentPolicyId && (
+								<Popconfirm
+									title="Delete Policy"
+									description="Are you sure you want to delete this policy?"
+									onConfirm={async () => {
+										try {
+											setLoading(true);
+											const response = await policyApi.delete(currentPolicyId);
+											if (response.success) {
+												message.success('Policy deleted successfully');
+												// Clear editor
+												setPolicyData({});
+												setEditorName('(unnamed)');
+												setCurrentPolicyId(null);
+												setCurrentPartId(null);
+												// Reload policies list
+												const listResponse = await policyApi.list();
+												if (listResponse.success && listResponse.data) {
+													setLoadedPolicies(listResponse.data);
+												}
+											} else {
+												message.error(response.error || 'Failed to delete policy');
+											}
+										} catch (error) {
+											console.error('Error deleting policy:', error);
+											message.error('Failed to delete policy');
+										} finally {
+											setLoading(false);
+										}
+									}}
+									okText="Yes, delete"
+									cancelText="Cancel"
+									okButtonProps={{ danger: true }}
+								>
+									<Button danger icon={<DeleteOutlined />} loading={loading}>
+										Delete
+									</Button>
+								</Popconfirm>
+							)}
 						</div>
-						<div className="text-xs text-gray-500 flex-shrink-0">Last modified: {new Date(editorLastModified).toLocaleString()}</div>
+						<div className="text-xs text-gray-500 flex-shrink-0">
+							Last modified: {isClient ? new Date(editorLastModified).toLocaleString() : 'Loading...'}
+						</div>
 					</div>
 
 					{/* Editor */}
@@ -430,24 +528,10 @@ export default function Welcome() {
 								<p>Select a template or create a new policy to get started</p>
 							</div>
 						) : (
-							<div className="h-full">
-								<Suspense fallback={<div className="text-sm text-gray-500">Loading editor...</div>}>
-									{/* json-edit-react expects `data` and `setData` props (see package) */}
-									{/* @ts-ignore */}
-									<AnyJsonEditor
-										data={policyData}
-										setData={handleSetPolicyData}
-										minWidth={300}
-										maxWidth="100%"
-										indent={2}
-										showCollectionCount={false}
-										collapse={false}
-										stringTruncate={500}
-										showStringQuotes={true}
-										className="jer-editor-container h-full"
-									/>
-								</Suspense>
-							</div>
+							<PolicyFormEditor 
+								data={policyData}
+								onChange={handleSetPolicyData}
+							/>
 						)}
 					</div>
 				</section>
