@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 
-import POLICY_COLORS from './policyColors';
+import { message } from 'antd';
+import { DeleteOutlined } from '@ant-design/icons';
 
-export default function Templates({ onInsert, onPolicyChange, onCategoryChange }: { onInsert: (template: any) => void; onPolicyChange?: (policy: string) => void; onCategoryChange?: (category: string) => void }) {
+export default function Templates({ onInsert, onDelete, currentEditingId }: { onInsert: (template: any) => void; onDelete?: () => void; currentEditingId?: string | null }) {
 	const [selected, setSelected] = useState('URSP');
 	const [search, setSearch] = useState('');
 	const componentsByPolicy: Record<string, string[]> = {
@@ -20,14 +21,12 @@ export default function Templates({ onInsert, onPolicyChange, onCategoryChange }
 		const defaultCat = opts[0];
 		// ensure category stays valid for the new policy
 		setCategory((prev) => (opts.includes(prev) ? prev : defaultCat));
-		onPolicyChange?.(selected);
-		onCategoryChange?.(defaultCat);
 	}, [selected]);
 
 	const categories = componentsByPolicy[selected] || ['Policy'];
 
 	// sample templates for demo purposes
-	const templatesData: Record<string, Record<string, Array<{ id: string; name: string; data: any }>>> = {
+	const initialTemplates: Record<string, Record<string, Array<{ id: string; name: string; data: any }>>> = {
 		URSP: {
 			Policy: [
 				{ id: 'ursp-policy-1', name: 'URSP Policy A', data: { uePolicySectionManagementSublist: { mccMNC: { mcc: '452', mnc: '04' } } } }
@@ -43,7 +42,7 @@ export default function Templates({ onInsert, onPolicyChange, onCategoryChange }
 			]
 		},
 		A2X: {
-			Policy: [{ id: 'a2x-policy-1', name: 'A2X Policy', data: { } }],
+			Policy: [{ id: 'a2x-policy-1', name: 'A2X Policy', data: {} }],
 			Rules: [],
 			['Route Descriptors']: []
 		},
@@ -52,69 +51,84 @@ export default function Templates({ onInsert, onPolicyChange, onCategoryChange }
 		ProSe: { Policy: [], Rules: [] }
 	};
 
-	const results = (templatesData[selected]?.[category] || []).filter((t) => t.name.toLowerCase().includes(search.toLowerCase()));
+	const [templatesByPolicy, setTemplatesByPolicy] = useState(initialTemplates);
+
+	const results = (templatesByPolicy[selected]?.[category] || []).filter((t) => t.name.toLowerCase().includes(search.toLowerCase()));
 
 	return (
-		<div className="border border-gray-300 dark:border-gray-700 rounded p-3 bg-white dark:bg-gray-800">
+		<div className="border border-gray-300 dark:border-gray-700 rounded p-3 bg-white dark:bg-gray-800 flex flex-col h-full">
 			<div className="flex items-center justify-between mb-3">
 				<h3 className="font-bold text-lg">Templates</h3>
 			</div>
 			<div className="mb-3">
-				<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="w-full border rounded px-2 py-1 text-sm" />
-			</div>
-			<div className="mb-3">
-				<div className="text-sm font-medium mb-2">Policy Type</div>
-				<div className="flex gap-2" role="radiogroup" aria-label="Templates category">
-				{['A2X','V2X','URSP','ANDSP','ProSe'].map((cat) => {
-					const selectedClasses = POLICY_COLORS[cat] ?? 'bg-blue-500 text-white';
-					return (
-						<button
-							key={cat}
-							type="button"
-							onClick={() => {
-								setSelected(cat);
-								onPolicyChange?.(cat);
-							}}
-							aria-pressed={selected === cat}
-							className={`px-3 py-1 rounded text-sm ${selected === cat ? selectedClasses : 'border bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'}`}>
-							{cat}
-						</button>
-					);
-				})}
-				</div>
-			</div>
-
-			<div className="mb-3">
-				<div className="text-sm font-medium mb-2">Category</div>
-				<div className="flex gap-2" role="radiogroup" aria-label="Category">
-					{categories.map((opt) => {
-					const categorySelectedClasses = POLICY_COLORS[selected] ?? 'bg-blue-500 text-white';
-					return (
-						<button
-							key={opt}
-							type="button"
-							onClick={() => { setCategory(opt); onCategoryChange?.(opt); }}
-							aria-pressed={category === opt}
-							className={`px-3 py-1 rounded text-sm ${category === opt ? categorySelectedClasses : 'border bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200'}`}>
-							{opt}
-						</button>
-					);
-				})}
-				</div>
-			</div>
-
-
-			{/* Results list */}
-			<div className="mt-3">
-				<div className="text-sm font-medium mb-2">Results</div>
-				<div className="space-y-2">
-					{results.length === 0 && <div className="text-sm text-gray-500">No templates</div>}
-					{results.map((r) => (
-						<button key={r.id} onClick={() => onInsert({ ...r, category, policy: selected })} className="w-full text-left p-2 rounded border hover:bg-gray-50 dark:hover:bg-gray-800">
-							<div className="font-medium">{r.name}</div>
-							<div className="text-xs text-gray-500 mt-1">Click to apply to editor</div>
-						</button>
+				<label className="text-sm font-medium mb-2 block">Policy Type</label>
+				<select value={selected} onChange={(e) => setSelected(e.target.value)} className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-gray-800">
+					{['A2X', 'V2X', 'URSP', 'ANDSP', 'ProSe'].map((cat) => (
+						<option key={cat} value={cat}>{cat}</option>
 					))}
+				</select>
+			</div>
+
+			<div className="mb-3">
+				<label className="text-sm font-medium mb-2 block">Category</label>
+				<select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-gray-800">
+					{categories.map((opt) => (
+						<option key={opt} value={opt}>{opt}</option>
+					))}
+				</select>
+			</div>
+
+			<div className="mb-3">
+				<label htmlFor="template-search" className="text-sm font-medium mb-2 block">Search</label>
+				<div className="flex gap-2">
+					<input id="template-search" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { /* focus remains on input after search */ } }} placeholder="Search templates..." className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+					<button onClick={() => { /* trigger search */ }} className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition-colors flex-shrink-0">Search</button>
+				</div>
+
+				<hr className="border-t border-gray-200 dark:border-gray-700 my-3" />
+				<div className="mt-3 flex-1 min-h-0">
+					<div className="flex items-center justify-between mb-2">
+						<div className="flex items-center gap-3">
+							<div className="text-sm font-medium">Results</div>
+							<div className="text-sm text-gray-500">{results.length} result{results.length !== 1 ? 's' : ''}</div>
+						</div>
+						<div>
+							<button onClick={() => {
+								const id = `tmp-${Date.now()}`;
+								const newItem = { id, name: 'New template', data: {} };
+								setTemplatesByPolicy(prev => {
+									const copy = { ...prev } as any;
+									copy[selected] = { ...(copy[selected] || {}) };
+									copy[selected][category] = [newItem, ...(copy[selected][category] || [])];
+									return copy;
+								});
+								message.success('Added new template');
+							}} className="text-sm border rounded px-3 py-1 bg-white dark:bg-gray-800">+ Add new item</button>
+						</div>
+					</div>
+					<div className="space-y-2 overflow-auto pr-1 h-full">
+						{results.length === 0 && <div className="text-sm text-gray-500">No templates</div>}
+						{results.map((r) => (
+							<div key={r.id} className={`w-full flex items-center justify-between p-2 rounded border group ${currentEditingId === r.id ? 'bg-blue-50 dark:bg-blue-900 border-blue-400' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+								<button onClick={() => onInsert({ ...r, category, policy: selected })} className="text-left flex-1 min-w-0">
+									<div className="font-medium truncate">{r.name}</div>
+									<div className="text-xs text-gray-500 mt-1">Click to apply to editor</div>
+								</button>
+								<button aria-label="Delete" onClick={() => {
+									setTemplatesByPolicy(prev => {
+										const copy = { ...prev } as any;
+										copy[selected] = { ...(copy[selected] || {}) };
+										copy[selected][category] = (copy[selected][category] || []).filter((t: any) => t.id !== r.id);
+										return copy;
+									});
+									message.success('Deleted');
+									onDelete?.();
+								}} className="text-red-600 p-1 rounded hover:bg-red-100 bg-red-50 ml-2 flex-shrink-0">
+									<DeleteOutlined />
+								</button>
+							</div>
+						))}
+					</div>
 				</div>
 			</div>
 		</div>
