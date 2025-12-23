@@ -364,8 +364,13 @@ export default function Welcome({ serverMessage }: { serverMessage?: string }) {
 				</div>
 			</header>
 
-			<main className="max-w-[1200px] mx-auto grid grid-cols-3 gap-6 min-h-[calc(100vh-6rem)] max-h-[calc(100vh-6rem)]">
-				<section className="col-span-2 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded shadow-sm p-4 flex flex-col max-h-[calc(100vh-6rem)]">
+			<main className="max-w-[1200px] mx-auto grid grid-cols-[20%_60%_20%] gap-6 min-h-[calc(100vh-6rem)] max-h-[calc(100vh-6rem)]">
+				<aside className="border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded shadow-sm p-4 flex flex-col max-h-[calc(100vh-6rem)] overflow-auto">
+					{/* Left column: Templates */}
+					<Templates onInsert={insertTemplateIntoPolicy} onPolicyChange={setEditorPolicyType} onCategoryChange={setEditorCategory} />
+				</aside>
+
+				<section className="border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded shadow-sm p-4 flex flex-col max-h-[calc(100vh-6rem)]">
 					<div className="flex items-center justify-between mb-2">
 						<div>
 				<h2 className="text-2xl font-semibold">
@@ -417,16 +422,12 @@ export default function Welcome({ serverMessage }: { serverMessage?: string }) {
 					</div>
 				</section>
 
-				<aside className="col-span-1 flex flex-col gap-4">
-						<Templates onInsert={insertTemplateIntoPolicy} onPolicyChange={setEditorPolicyType} onCategoryChange={setEditorCategory} />
-
-					<div className="border border-gray-300 dark:border-gray-700 rounded p-3 bg-white dark:bg-gray-800 flex-1 flex flex-col">
-						<h4 className="font-bold text-center mb-2">Agent</h4>
-						<div className="flex-1 bg-gray-50 dark:bg-gray-900 rounded mb-2 p-2 overflow-auto text-sm"></div>
-						<div className="flex gap-2">
-							<input className="flex-1 border rounded px-2 py-1 text-sm" placeholder="Type a message..." />
-							<button className="px-3 py-1 bg-blue-600 text-white rounded">Send</button>
-						</div>
+				<aside className="border border-gray-300 dark:border-gray-700 rounded p-3 bg-white dark:bg-gray-800 flex flex-col max-h-[calc(100vh-6rem)] overflow-auto">
+					<h4 className="font-bold text-center mb-2">Agent</h4>
+					<div className="flex-1 bg-gray-50 dark:bg-gray-900 rounded mb-2 p-2 overflow-auto text-sm"></div>
+					<div className="flex gap-2">
+						<input className="flex-1 border rounded px-2 py-1 text-sm" placeholder="Type a message..." />
+						<button className="px-3 py-1 bg-blue-600 text-white rounded">Send</button>
 					</div>
 				</aside>
 			</main>
