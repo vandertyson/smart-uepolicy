@@ -2,6 +2,10 @@ import { Hono } from "hono";
 
 // ==================== Types ====================
 
+interface CloudflareEnv {
+	smart_uepolicy: D1Database;
+}
+
 interface UePolicy {
 	id: string;
 	project_id: string;
@@ -224,7 +228,7 @@ urspRouter.get("/policies/:id/full", async (c) => {
 
 				rules.push({
 					...rule,
-					trafficDescriptors: (trafficDescriptors.results || []).map(td => ({
+					trafficDescriptors: (trafficDescriptors.results || []).map((td: TrafficDescriptor) => ({
 						...td,
 						value: td.descriptor_value === 'null' ? null : JSON.parse(td.descriptor_value)
 					})),
