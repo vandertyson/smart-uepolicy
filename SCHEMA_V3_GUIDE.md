@@ -12,12 +12,17 @@ projects
     └── ue_policy_parts (part_type: URSP=1, ANDSP=2, A2X=3, V2X=4, ProSe=5)
         ├── [URSP] ursp_rules (precedence_value)
         │   ├── traffic_descriptors (type, value)
-        │   └── route_descriptors (precedence_value)
-        │       └── route_components (type, value)
+        │   └── route_selection_descriptors (precedence_value)  ← Mỗi route có precedence riêng
+        │       └── route_selection_components (type, value)  ← Tập hợp chỉ thị (S-NSSAI, DNN, PDU type...)
         ├── [ANDSP] andsp_rules (precedence_value, criteria)
         ├── [V2X] v2x_rules (precedence_value, service_type, config)
         └── [ProSe] prose_rules (precedence_value, service_type, config)
 ```
+
+**Quan trọng:**
+- 1 **URSP Rule** có nhiều **Route Selection Descriptors** (mỗi route là 1 lựa chọn routing)
+- Mỗi **Route** có **precedence riêng** để xác định thứ tự ưu tiên
+- Mỗi **Route** chứa nhiều **Components** (S-NSSAI, DNN, PDU session type, Access type, etc.)
 
 ## Policy Part Types
 
@@ -30,6 +35,8 @@ projects
 | ProSe | 5 | Proximity-based Services |
 
 ## URSP Structure (part_type = 1)
+
+**Structure:** 1 rule → N routes (mỗi route có precedence riêng) → Mỗi route có N components
 
 ### Traffic Descriptor Types (TS 24.526 Table 5.2.1-1)
 
@@ -95,10 +102,10 @@ INSERT INTO traffic_descriptors (id, rule_id, descriptor_type, descriptor_value)
 VALUES ('td-0', 'rule-0', 144, '{"connectionCapabilities":[8]}');
 
 -- Route descriptor: S-NSSAI (sst=1, sd=1)
-INSERT INTO route_descriptors (id, rule_id, precedence_value)
+INSERT INTO route_selection_descriptors (id, rule_id, precedence_value)
 VALUES ('rd-0', 'rule-0', 0);
 
-INSERT INTO route_components (id, route_descriptor_id, component_type, component_value)
+INSERT INTO route_selection_components (id, route_descriptor_id, component_type, component_value)
 VALUES ('rc-0', 'rd-0', 2, '{"sst":1,"sd":"1"}');
 ```
 
@@ -112,10 +119,10 @@ INSERT INTO traffic_descriptors (id, rule_id, descriptor_type, descriptor_value)
 VALUES ('td-1', 'rule-1', 144, '{"connectionCapabilities":[1]}');
 
 -- Route descriptor
-INSERT INTO route_descriptors (id, rule_id, precedence_value)
+INSERT INTO route_selection_descriptors (id, rule_id, precedence_value)
 VALUES ('rd-1', 'rule-1', 0);
 
-INSERT INTO route_components (id, route_descriptor_id, component_type, component_value)
+INSERT INTO route_selection_components (id, route_descriptor_id, component_type, component_value)
 VALUES ('rc-1', 'rd-1', 2, '{"sst":1,"sd":"1"}');
 ```
 
@@ -129,20 +136,20 @@ INSERT INTO traffic_descriptors (id, rule_id, descriptor_type, descriptor_value)
 VALUES ('td-2', 'rule-2', 8, 
   '{"osId":"97A498E3FC925C9489860333D06E4E47","osAppId":"454E5445525052495345"}');
 
--- Route descriptor 1: S-NSSAI (sst=1, sd=0) + DNN
-INSERT INTO route_descriptors (id, rule_id, precedence_value)
+-- Route descriptor 1: S-NSSAI (sst=1, sd=0) + DNN (precedence 0 = highest)
+INSERT INTO route_selection_descriptors (id, rule_id, precedence_value)
 VALUES ('rd-2-1', 'rule-2', 0);
 
-INSERT INTO route_components (id, route_descriptor_id, component_type, component_value)
+INSERT INTO route_selection_components (id, route_descriptor_id, component_type, component_value)
 VALUES 
   ('rc-2-1-1', 'rd-2-1', 2, '{"sst":1,"sd":"0"}'),
   ('rc-2-1-2', 'rd-2-1', 4, '{"dnn":"0A762D696E7465726E6574"}');
 
--- Route descriptor 2: S-NSSAI (sst=1, sd=1) + DNN
-INSERT INTO route_descriptors (id, rule_id, precedence_value)
+-- Route descriptor 2: S-NSSAI (sst=1, sd=1) + DNN (precedence 1 = lower priority)
+INSERT INTO route_selection_descriptors (id, rule_id, precedence_value)
 VALUES ('rd-2-2', 'rule-2', 1);
 
-INSERT INTO route_components (id, route_descriptor_id, component_type, component_value)
+INSERT INTO route_selection_components (id, route_descriptor_id, component_type, component_value)
 VALUES 
   ('rc-2-2-1', 'rd-2-2', 2, '{"sst":1,"sd":"1"}'),
   ('rc-2-2-2', 'rd-2-2', 4, '{"dnn":"0A762D696E7465726E6574"}');
@@ -158,10 +165,10 @@ INSERT INTO traffic_descriptors (id, rule_id, descriptor_type, descriptor_value)
 VALUES ('td-3', 'rule-3', 1, 'null');
 
 -- Route descriptor: S-NSSAI + DNN
-INSERT INTO route_descriptors (id, rule_id, precedence_value)
+INSERT INTO route_selection_descriptors (id, rule_id, precedence_value)
 VALUES ('rd-3', 'rule-3', 0);
 
-INSERT INTO route_components (id, route_descriptor_id, component_type, component_value)
+INSERT INTO route_selection_components (id, route_descriptor_id, component_type, component_value)
 VALUES 
   ('rc-3-1', 'rd-3', 2, '{"sst":1,"sd":"1"}'),
   ('rc-3-2', 'rd-3', 4, '{"dnn":"0A762D696E7465726E6574"}');
